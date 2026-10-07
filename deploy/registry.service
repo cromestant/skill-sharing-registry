@@ -4,10 +4,10 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
-WorkingDirectory=/var/www/registry
+WorkingDirectory=/var/www/skill-sharing-registry
 Environment=DATABASE_URL=postgresql+psycopg://muse@/registry?host=/var/run/postgresql
-Environment=HF_HOME=/var/www/registry/.hf-cache
-ExecStart=/var/www/registry/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8077
+Environment=HF_HOME=/var/www/skill-sharing-registry/.hf-cache
+ExecStart=/var/www/skill-sharing-registry/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8077
 Restart=always
 RestartSec=5
 
