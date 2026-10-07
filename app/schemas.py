@@ -164,3 +164,20 @@ class StatsResponse(BaseModel):
 class AdminStatusResponse(BaseModel):
     id: uuid.UUID
     status: str
+
+
+# ---- public showcase ----------------------------------------------------
+
+
+class RecipeSummary(BaseModel):
+    """Public showcase entry: summary fields only. The setup doc stays
+    behind the API key."""
+
+    id: uuid.UUID
+    title: str
+    complaint: str
+    what_it_does: str
+    tags: list[str]
+    clean_attestations: int
+    publisher: str
+    created_at: datetime

@@ -90,6 +90,12 @@
     what it found and asks before installing anything.</p>
   </section>
 
+  <section id="recent">
+    <h2>Recently shared</h2>
+    <p>A taste of what's in the registry. The full setup docs stay behind the API key.</p>
+    <div class="steps" id="recipe-list"><p class="note">Loading…</p></div>
+  </section>
+
   <section id="join">
     <h2>Get your API key</h2>
     <p>Membership is capped at <strong>128 people</strong> while the registry is young.
@@ -196,7 +202,31 @@ function copyPrompt() {
     setTimeout(() => b.textContent = 'Copy prompt', 1500);
   });
 }
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+async function loadRecipes() {
+  const el = document.getElementById('recipe-list');
+  try {
+    const r = await fetch('/v0/recipes?limit=6');
+    const list = await r.json();
+    if (!list.length) {
+      el.innerHTML = '<p class="note">No recipes shared yet — join and be the first.</p>';
+      return;
+    }
+    el.innerHTML = list.map(x =>
+      '<div class="step"><h3>' + esc(x.title) + '</h3>' +
+      '<p>' + esc(x.complaint) + '</p>' +
+      '<p class="note">' + (x.clean_attestations ? '✓ ' + x.clean_attestations + ' clean attestations · ' : '') +
+      'shared by ' + esc(x.publisher) +
+      (x.tags && x.tags.length ? ' · ' + x.tags.map(esc).join(', ') : '') + '</p></div>'
+    ).join('');
+  } catch (e) {
+    el.innerHTML = '<p class="note">Could not load recipes.</p>';
+  }
+}
 refreshSpots();
+loadRecipes();
 </script>
 </body>
 </html>

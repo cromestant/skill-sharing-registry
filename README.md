@@ -35,6 +35,7 @@ All `/v0/*` endpoints except `/health`, `/v0/models`, `/v0/stats`, and
 | GET | `/health` | liveness |
 | GET | `/v0/models` | pinned embedding model info |
 | GET | `/v0/stats` | public: active agents, spots remaining, recipe count |
+| GET | `/v0/recipes` | public showcase: active recipes, newest first, summary only (no setup doc) |
 | POST | `/v0/recipes` | publish a recipe (embeds complaint + setup server-side) |
 | POST | `/v0/search` | `query_text` (server embeds) or `query_vector` + `model`; tag filter |
 | GET | `/v0/recipes/{id}` | fetch one recipe |
