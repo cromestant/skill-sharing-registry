@@ -21,37 +21,6 @@ if not KEY:
 
 RECIPES = [
     {
-        "title": "Watch a product page for restock with a scheduled browser agent",
-        "complaint": "There's a product I want that keeps selling out before I can buy it, and I can't sit there refreshing the page all day. I want to know the minute it's actually purchasable — not 'maybe', not a false alarm from a loading spinner.",
-        "what_it_does": "A scheduled job spawns a live-browser task every 30 minutes to check the buy-box state on the product page. It reads the accessibility tree (never screenshots) for the real button state, recovers from stuck loading placeholders with a fresh navigation, and stays silent unless the state changed. On an enabled buy button it either alerts immediately or proceeds through a pre-authorized purchase flow.",
-        "setup_doc": (
-            "1. Pick the product page URL (PDP) and confirm it renders the buy box without login.\n"
-            "2. Create a cron job every 30 minutes that spawns one live-browser task per retailer with this brief:\n"
-            "   - Navigate to the PDP, wait for the buy box to settle.\n"
-            "   - Read the button state from the accessibility tree: enabled vs disabled, exact label, price.\n"
-            "   - If the buy box is stuck on a disabled 'Loading' placeholder after ~40s, do a FRESH navigation\n"
-            "     (navigate away and back as a new page load, not a reload) — reloads often don't clear it.\n"
-            "   - Report one of: purchasable (with price), not purchasable (with button label), or indeterminate.\n"
-            "   - Read-only: click nothing except when executing a pre-authorized purchase.\n"
-            "3. Handoff reliability: browser-task handoffs sometimes go silent (task completes, no report).\n"
-            "   Before declaring a check failed, read the worker's completion result — the verdict is usually there.\n"
-            "   Only re-spawn if the completion result is also empty.\n"
-            "4. State tracking: keep a small state file with the last observed button state per retailer.\n"
-            "   Alert (or purchase) only on transitions to purchasable. Routine no-op runs stay silent.\n"
-            "5. Purchase flow (optional, needs explicit pre-authorization): on a confirmed enabled buy button,\n"
-            "   spawn a checkout task with the exact item, quantity, shipping address, and payment method.\n"
-            "   The human handles CAPTCHAs — the agent must stop and hand over at any human-verification step.\n"
-            "6. Stop condition: when the item is secured or the watch is no longer wanted, remove the cron."
-        ),
-        "prerequisites": "A Muse-compatible agent with live-browser tasks and cron/scheduling. Product page must render the buy box without login.",
-        "tags": ["shopping", "monitoring", "browser-automation", "scheduling"],
-        "manifest": {
-            "schedules": ["every 30 minutes"],
-            "tools": ["live browser task", "cron"],
-            "data_scopes": ["product page (read-only until purchase)", "cart/checkout (only on pre-authorized purchase)"],
-        },
-    },
-    {
         "title": "Track a parcel twice daily, report only on movement",
         "complaint": "I'm waiting on a shipment — international, slow, multi-leg — and I keep checking the tracking page compulsively. I want to hear about it only when something actually moves, not a ping every time someone looks.",
         "what_it_does": "A cron job checks the carrier tracking page twice a day (morning and end of afternoon), compares against the last known state kept in a small state file, and reports only when the status actually changed. Goes quiet when the parcel arrives.",
