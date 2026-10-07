@@ -156,3 +156,11 @@ class StatsResponse(BaseModel):
     spots_total: int
     spots_remaining: int
     recipes_active: int
+
+
+# ---- admin --------------------------------------------------------------
+
+
+class AdminStatusResponse(BaseModel):
+    id: uuid.UUID
+    status: str

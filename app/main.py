@@ -1,7 +1,9 @@
 """Agent Recipe Registry v0 — FastAPI application."""
 
+import hmac
 import logging
 import math
+import os
 import uuid
 from datetime import timedelta
 from pathlib import Path
@@ -16,8 +18,10 @@ from .auth import generate_key, get_agent, hash_key, mint_agent_identity
 from .db import Base, engine, get_db
 from .gates import (
     MAX_QUERY_CHARS,
+    check_attest_rate,
     check_publish_rate,
     check_redeem_rate,
+    check_report_rate,
     check_search_rate,
     screen_attestation,
     screen_publish,
@@ -25,6 +29,7 @@ from .gates import (
 )
 from .models import AgentIdentity, Attestation, InviteCode, Recipe, Report, utcnow
 from .schemas import (
+    AdminStatusResponse,
     AttestRequest,
     AttestResponse,
     InviteRequest,
@@ -378,6 +383,87 @@ def fetch_recipe(recipe_id: uuid.UUID, db: Session = Depends(get_db)):
     )
 
 
+# ---- admin --------------------------------------------------------------
+
+
+def get_operator(
+    x_operator_key: str | None = Header(default=None, alias="X-Operator-Key"),
+) -> None:
+    """Operator auth for /v0/admin/*. Separate bearer key from agent keys,
+    via OPERATOR_API_KEY. Unset key = admin disabled."""
+    expected = os.environ.get("OPERATOR_API_KEY", "")
+    if (
+        not expected
+        or not x_operator_key
+        or not hmac.compare_digest(x_operator_key, expected)
+    ):
+        raise HTTPException(
+            status_code=403, detail="admin disabled or invalid operator key"
+        )
+
+
+@app.post("/v0/admin/agents/{agent_id}/revoke", response_model=AdminStatusResponse)
+def admin_revoke_agent(
+    agent_id: uuid.UUID,
+    _op: None = Depends(get_operator),
+    db: Session = Depends(get_db),
+):
+    ident = db.get(AgentIdentity, agent_id)
+    if ident is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+    ident.status = "revoked"
+    db.commit()
+    log.info("admin: revoked agent %s (%s)", ident.id, ident.display_name)
+    return AdminStatusResponse(id=ident.id, status=ident.status)
+
+
+@app.post("/v0/admin/agents/{agent_id}/restore", response_model=AdminStatusResponse)
+def admin_restore_agent(
+    agent_id: uuid.UUID,
+    _op: None = Depends(get_operator),
+    db: Session = Depends(get_db),
+):
+    ident = db.get(AgentIdentity, agent_id)
+    if ident is None:
+        raise HTTPException(status_code=404, detail="agent not found")
+    ident.status = "active"
+    db.commit()
+    log.info("admin: restored agent %s (%s)", ident.id, ident.display_name)
+    return AdminStatusResponse(id=ident.id, status=ident.status)
+
+
+@app.post(
+    "/v0/admin/recipes/{recipe_id}/quarantine", response_model=AdminStatusResponse
+)
+def admin_quarantine_recipe(
+    recipe_id: uuid.UUID,
+    _op: None = Depends(get_operator),
+    db: Session = Depends(get_db),
+):
+    recipe = db.get(Recipe, recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="recipe not found")
+    recipe.status = "quarantined"
+    db.commit()
+    log.info("admin: quarantined recipe %s (%s)", recipe.id, recipe.title)
+    return AdminStatusResponse(id=recipe.id, status=recipe.status)
+
+
+@app.post("/v0/admin/recipes/{recipe_id}/release", response_model=AdminStatusResponse)
+def admin_release_recipe(
+    recipe_id: uuid.UUID,
+    _op: None = Depends(get_operator),
+    db: Session = Depends(get_db),
+):
+    recipe = db.get(Recipe, recipe_id)
+    if recipe is None:
+        raise HTTPException(status_code=404, detail="recipe not found")
+    recipe.status = "active"
+    db.commit()
+    log.info("admin: released recipe %s (%s)", recipe.id, recipe.title)
+    return AdminStatusResponse(id=recipe.id, status=recipe.status)
+
+
 # ---- attest / report ----------------------------------------------------
 
 
@@ -388,6 +474,8 @@ def attest(
     agent: AgentIdentity = Depends(get_agent),
     db: Session = Depends(get_db),
 ):
+    if not check_attest_rate(str(agent.id)):
+        raise HTTPException(status_code=429, detail="attest rate limit exceeded")
     recipe = db.get(Recipe, recipe_id)
     if recipe is None or recipe.status != "active":
         raise HTTPException(status_code=404, detail="recipe not found")
@@ -421,6 +509,8 @@ def report(
     agent: AgentIdentity = Depends(get_agent),
     db: Session = Depends(get_db),
 ):
+    if not check_report_rate(str(agent.id)):
+        raise HTTPException(status_code=429, detail="report rate limit exceeded")
     recipe = db.get(Recipe, recipe_id)
     if recipe is None:
         raise HTTPException(status_code=404, detail="recipe not found")
