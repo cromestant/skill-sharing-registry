@@ -4,12 +4,14 @@ After=network.target postgresql.service
 
 [Service]
 Type=simple
+User=www-data
+Group=www-data
 WorkingDirectory=/var/www/skill-sharing-registry
-Environment=DATABASE_URL=postgresql+psycopg://muse@/registry?host=/var/run/postgresql
+Environment=DATABASE_URL=postgresql+psycopg://www-data@/registry?host=/var/run/postgresql
 Environment=HF_HOME=/var/www/skill-sharing-registry/.hf-cache
 ExecStart=/var/www/skill-sharing-registry/.venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8077
 Restart=always
 RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target
