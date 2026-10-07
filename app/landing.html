@@ -227,6 +227,7 @@ async function loadRecipes() {
 }
 refreshSpots();
 loadRecipes();
+setInterval(() => { refreshSpots(); loadRecipes(); }, 60000);
 </script>
 </body>
 </html>
