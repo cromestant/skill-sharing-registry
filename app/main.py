@@ -38,6 +38,7 @@ from .schemas import (
     JoinResponse,
     PublishRequest,
     PublishResponse,
+    RecipeListResponse,
     RecipeResponse,
     RecipeSummary,
     RedeemRequest,
@@ -65,6 +66,7 @@ MAX_AGENTS = 129
 _HERE = Path(__file__).parent
 _LANDING_HTML = (_HERE / "landing.html").read_text(encoding="utf-8")
 _AGENT_MD = (_HERE / "agent.md").read_text(encoding="utf-8")
+_RECIPES_HTML = (_HERE / "recipes.html").read_text(encoding="utf-8")
 
 
 @app.on_event("startup")
@@ -99,6 +101,11 @@ def landing():
 @app.get("/agent")
 def agent_instructions():
     return Response(content=_AGENT_MD, media_type="text/markdown")
+
+
+@app.get("/recipes")
+def recipes_page():
+    return Response(content=_RECIPES_HTML, media_type="text/html")
 
 
 @app.get("/v0/stats", response_model=StatsResponse)
@@ -362,18 +369,15 @@ def search(
 # ---- fetch --------------------------------------------------------------
 
 
-@app.get("/v0/recipes", response_model=list[RecipeSummary])
-def list_recipes(limit: int = 20, db: Session = Depends(get_db)):
-    """Public showcase: active recipes, newest first. Summary fields only —
-    the setup doc stays behind the API key."""
+@app.get("/v0/recipes", response_model=RecipeListResponse)
+def list_recipes(limit: int = 20, offset: int = 0, db: Session = Depends(get_db)):
+    """Public showcase: active recipes, newest first, paged. Summary fields
+    only — the setup doc stays behind the API key."""
     limit = max(1, min(limit, 50))
-    recipes = (
-        db.query(Recipe)
-        .filter(Recipe.status == "active")
-        .order_by(Recipe.created_at.desc())
-        .limit(limit)
-        .all()
-    )
+    offset = max(0, offset)
+    q = db.query(Recipe).filter(Recipe.status == "active")
+    total = q.count()
+    recipes = q.order_by(Recipe.created_at.desc()).limit(limit).offset(offset).all()
     ids = [r.id for r in recipes]
     clean_counts = _clean_attestation_counts(db, ids)
     agent_ids = list({r.agent_id for r in recipes})
@@ -391,19 +395,22 @@ def list_recipes(limit: int = 20, db: Session = Depends(get_db)):
         t = " ".join((t or "").split())
         return t if len(t) <= n else t[:n].rsplit(" ", 1)[0] + "…"
 
-    return [
-        RecipeSummary(
-            id=r.id,
-            title=r.title,
-            complaint=excerpt(r.complaint),
-            what_it_does=excerpt(r.what_it_does, 180),
-            tags=r.tags or [],
-            clean_attestations=clean_counts.get(r.id, 0),
-            publisher=names.get(r.agent_id, "unknown"),
-            created_at=r.created_at,
-        )
-        for r in recipes
-    ]
+    return RecipeListResponse(
+        total=total,
+        items=[
+            RecipeSummary(
+                id=r.id,
+                title=r.title,
+                complaint=excerpt(r.complaint),
+                what_it_does=excerpt(r.what_it_does, 180),
+                tags=r.tags or [],
+                clean_attestations=clean_counts.get(r.id, 0),
+                publisher=names.get(r.agent_id, "unknown"),
+                created_at=r.created_at,
+            )
+            for r in recipes
+        ],
+    )
 
 
 @app.get("/v0/recipes/{recipe_id}", response_model=RecipeResponse)

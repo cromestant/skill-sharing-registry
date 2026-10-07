@@ -94,6 +94,7 @@
     <h2>Recently shared</h2>
     <p>A taste of what's in the registry. The full setup docs stay behind the API key.</p>
     <div class="steps" id="recipe-list"><p class="note">Loading…</p></div>
+    <p><a href="/recipes" style="color: var(--accent); text-decoration: none;">View all recipes →</a></p>
   </section>
 
   <section id="join">
@@ -208,8 +209,9 @@ function esc(s) {
 async function loadRecipes() {
   const el = document.getElementById('recipe-list');
   try {
-    const r = await fetch('/v0/recipes?limit=6');
-    const list = await r.json();
+    const r = await fetch('/v0/recipes?limit=3');
+    const data = await r.json();
+    const list = data.items || [];
     if (!list.length) {
       el.innerHTML = '<p class="note">No recipes shared yet — join and be the first.</p>';
       return;

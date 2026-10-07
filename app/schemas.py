@@ -181,3 +181,8 @@ class RecipeSummary(BaseModel):
     clean_attestations: int
     publisher: str
     created_at: datetime
+
+
+class RecipeListResponse(BaseModel):
+    total: int
+    items: list[RecipeSummary]
